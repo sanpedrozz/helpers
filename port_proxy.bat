@@ -16,10 +16,11 @@ echo ===============================================
 echo           PortProxy Helper (v4tov4)
 echo ===============================================
 echo [1] Add / Update a rule
-echo [2] Remove one rule
-echo [3] Remove ALL rules
-echo [4] Show rules
-echo [5] Exit
+echo [2] Disconnect all clients (restart iphlpsvc)
+echo [3] Remove one rule
+echo [4] Remove ALL rules
+echo [5] Show rules
+echo [6] Exit
 echo ===============================================
 echo ***********************************************
 echo *  HINTS:                                     *
@@ -27,13 +28,14 @@ echo *    - Modbus TCP usually uses port 502       *
 echo *    - OPC UA usually uses port 4840          *
 echo ***********************************************
 echo ===============================================
-set /p CHOICE=Select option (1-5): 
+set /p CHOICE=Select option (1-6): 
 
 if "%CHOICE%"=="1" goto AddRule
-if "%CHOICE%"=="2" goto RemoveRule
-if "%CHOICE%"=="3" goto RemoveAll
-if "%CHOICE%"=="4" goto ShowRules
-if "%CHOICE%"=="5" exit /b
+if "%CHOICE%"=="2" goto RestartSvc
+if "%CHOICE%"=="3" goto RemoveRule
+if "%CHOICE%"=="4" goto RemoveAll
+if "%CHOICE%"=="5" goto ShowRules
+if "%CHOICE%"=="6" exit /b
 
 goto Menu
 
@@ -99,6 +101,20 @@ echo Dump of current PortProxy configuration:
 echo ---------------------------------------
 netsh interface portproxy dump
 echo ---------------------------------------
+pause
+goto Menu
+
+
+:RestartSvc
+cls
+echo Restarting IP Helper service (iphlpsvc) to disconnect all PortProxy clients...
+echo.
+net stop iphlpsvc
+echo.
+timeout /t 2 >nul
+net start iphlpsvc
+echo.
+echo Done. All existing PortProxy connections were dropped.
 pause
 goto Menu
 
