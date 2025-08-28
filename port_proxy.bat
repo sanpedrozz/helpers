@@ -1,4 +1,7 @@
 @echo off
+setlocal EnableExtensions EnableDelayedExpansion
+title PortProxy Helper (v4tov4)
+
 :: --- Self elevate to Administrator ---
 net session >nul 2>&1
 if %errorlevel% neq 0 (
@@ -6,22 +9,8 @@ if %errorlevel% neq 0 (
       "Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b
 )
-:: =============================================================
-:: PortProxy Helper (menu) - ASCII only
-:: Add / Show / Remove port forwarding rules (v4tov4)
-:: Requires: run as Administrator
-:: =============================================================
 
-title PortProxy Helper
-setlocal ENABLEDELAYEDEXPANSION
-
-:: Defaults (edit if needed)
-set "LISTEN_IP=0.0.0.0"
-set "LISTEN_PORT=4840"
-set "DEST_IP=192.168.10.50"
-set "DEST_PORT=4840"
-
-:menu
+:Menu
 cls
 echo ===============================================
 echo           PortProxy Helper (v4tov4)
@@ -38,83 +27,122 @@ echo *    - Modbus TCP usually uses port 502       *
 echo *    - OPC UA usually uses port 4840          *
 echo ***********************************************
 echo ===============================================
-set /p choice=Select option (1-5): 
+set /p CHOICE=Select option (1-5): 
 
-if "%choice%"=="1" goto add_rule
-if "%choice%"=="2" goto remove_one
-if "%choice%"=="3" goto remove_all
-if "%choice%"=="4" goto show_rules
-if "%choice%"=="5" goto end
-goto menu
+if "%CHOICE%"=="1" goto AddRule
+if "%CHOICE%"=="2" goto RemoveRule
+if "%CHOICE%"=="3" goto RemoveAll
+if "%CHOICE%"=="4" goto ShowRules
+if "%CHOICE%"=="5" exit /b
 
-:add_rule
+goto Menu
+
+
+:AddRule
 cls
-echo --- Add / Update rule ---
-echo (Press Enter to keep current value)
-set /p LISTEN_IP_IN=Listen IP [%LISTEN_IP%]: 
-if not "%LISTEN_IP_IN%"=="" set "LISTEN_IP=%LISTEN_IP_IN%"
-set /p LISTEN_PORT_IN=Listen Port [%LISTEN_PORT%]: 
-if not "%LISTEN_PORT_IN%"=="" set "LISTEN_PORT=%LISTEN_PORT_IN%"
-set /p DEST_IP_IN=Destination IP [%DEST_IP%]: 
-if not "%DEST_IP_IN%"=="" set "DEST_IP=%DEST_IP_IN%"
-set /p DEST_PORT_IN=Destination Port [%DEST_PORT%]: 
-if not "%DEST_PORT_IN%"=="" set "DEST_PORT=%DEST_PORT_IN%"
+echo ==============================
+echo     ADD / UPDATE A RULE
+echo ==============================
+echo [1] Modbus TCP (port 502)
+echo [2] OPC UA     (port 4840)
+echo [3] Custom port
+echo ==============================
+set /p PORTCHOICE=Choose option (1-3): 
 
-echo.
-echo Creating rule: %LISTEN_IP%:%LISTEN_PORT% ^> %DEST_IP%:%DEST_PORT%
-echo.
+if "%PORTCHOICE%"=="1" (
+    set "PORT=502"
+) else if "%PORTCHOICE%"=="2" (
+    set "PORT=4840"
+) else if "%PORTCHOICE%"=="3" (
+    call :ASK_PORT PORT "Enter custom port (1..65535)"
+) else (
+    echo [!] Invalid choice.
+    pause
+    goto Menu
+)
 
-netsh interface portproxy delete v4tov4 listenaddress=%LISTEN_IP% listenport=%LISTEN_PORT% >nul 2>&1
-netsh interface portproxy add v4tov4 ^
-  listenaddress=%LISTEN_IP% listenport=%LISTEN_PORT% ^
-  connectaddress=%DEST_IP% connectport=%DEST_PORT%
+:: LISTEN_IP fixed; LISTEN_PORT = DEST_PORT
+set "LISTEN_IP=0.0.0.0"
+set "LISTEN_PORT=%PORT%"
+set "DEST_PORT=%PORT%"
+
+:: ask only for destination IP
+set "DEFAULT_DEST_IP=192.168.0.100"
+set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]: 
+if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
+
+call :CHECK_IP "%DEST_IP%"
 if errorlevel 1 (
-  echo [ERROR] Failed to add the rule. Try using an exact Listen IP instead of 0.0.0.0.
-  pause
-  goto menu
+    echo [!] Invalid IPv4 format. Example: 192.168.0.100
+    pause
+    goto Menu
 )
 
 echo.
-echo [OK] Rule added/updated.
-pause
-goto menu
+echo Removing old rule if exists...
+netsh interface portproxy delete v4tov4 listenport=%LISTEN_PORT% listenaddress=%LISTEN_IP% >nul 2>&1
 
-:remove_one
-cls
-echo --- Remove one rule ---
-set /p R_LISTEN_IP=Listen IP to remove [current %LISTEN_IP%]: 
-if "%R_LISTEN_IP%"=="" set "R_LISTEN_IP=%LISTEN_IP%"
-set /p R_LISTEN_PORT=Listen Port to remove [current %LISTEN_PORT%]: 
-if "%R_LISTEN_PORT%"=="" set "R_LISTEN_PORT=%LISTEN_PORT%"
-echo.
-echo Deleting rule %R_LISTEN_IP%:%R_LISTEN_PORT% ...
-netsh interface portproxy delete v4tov4 listenaddress=%R_LISTEN_IP% listenport=%R_LISTEN_PORT%
-pause
-goto menu
+echo Adding new rule:
+echo     %LISTEN_IP%:%LISTEN_PORT%  -->  %DEST_IP%:%DEST_PORT%
+netsh interface portproxy add v4tov4 listenport=%LISTEN_PORT% listenaddress=%LISTEN_IP% connectport=%DEST_PORT% connectaddress=%DEST_IP%
 
-:remove_all
-cls
-echo --- Remove ALL rules ---
-echo WARNING: This will delete ALL v4tov4 portproxy rules.
-set /p confirm=Type YES to confirm: 
-if /I not "%confirm%"=="YES" (
-  echo Cancelled.
-  pause
-  goto menu
+if errorlevel 1 (
+    echo [!] Failed to create portproxy rule.
+    pause
+    goto Menu
 )
+
+echo.
+echo [+] Rule created successfully.
+echo.
+echo Dump of current PortProxy configuration:
+echo ---------------------------------------
+netsh interface portproxy dump
+echo ---------------------------------------
+pause
+goto Menu
+
+
+:RemoveRule
+cls
+set /p RP=Enter LISTEN PORT to remove: 
+netsh interface portproxy delete v4tov4 listenport=%RP% listenaddress=0.0.0.0
+pause
+goto Menu
+
+
+:RemoveAll
+cls
+echo Removing ALL rules...
 netsh interface portproxy reset
-echo All rules removed.
 pause
-goto menu
+goto Menu
 
-:show_rules
+
+:ShowRules
 cls
-echo --- Current rules ---
+echo Current PortProxy rules:
+echo.
 netsh interface portproxy show all
 echo.
 pause
-goto menu
+goto Menu
 
-:end
-endlocal
+
+:: ---------- Helpers ----------
+:ASK_PORT
+:: %1 = var name, %2 = prompt
+set "_var=%~1"
+set "_prompt=%~2"
+:ASK_PORT_LOOP
+set /p "%_var%=%_prompt%: "
+set "VAL=!%_var%!"
+echo %VAL%| findstr /R "^[0-9][0-9]*$" >nul || (echo [!] Enter digits only.& goto :ASK_PORT_LOOP)
+if %VAL% lss 1  (echo [!] Port must be >= 1.& goto :ASK_PORT_LOOP)
+if %VAL% gtr 65535 (echo [!] Port must be <= 65535.& goto :ASK_PORT_LOOP)
+goto :eof
+
+:CHECK_IP
+set "IP=%~1"
+echo %IP%| findstr /R "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul || (exit /b 1)
 exit /b 0
