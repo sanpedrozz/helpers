@@ -2,13 +2,19 @@
 setlocal EnableExtensions EnableDelayedExpansion
 title PortProxy Helper (v4tov4)
 
-:: --- Self elevate to Administrator ---
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "Start-Process -FilePath '%~f0' -Verb RunAs"
-    exit /b
-)
+:: -----------------------------------------------------------------
+:: PortProxy Helper
+:: A tiny utility to manage v4-to-v4 port proxy rules via ``netsh``.
+:: The script re-launches itself with administrative rights when
+:: required.  Adjust ``DEFAULT_DEST_IP`` below to match your network.
+:: -----------------------------------------------------------------
+
+:: Default destination IP used when adding new rules
+set "DEFAULT_DEST_IP=192.168.0.100"
+
+:: Ensure we are running with administrative privileges
+call :EnsureAdmin
+
 
 :Menu
 cls
@@ -69,10 +75,7 @@ set "LISTEN_PORT=%PORT%"
 set "DEST_PORT=%PORT%"
 
 :: ask only for destination IP
-set "DEFAULT_DEST_IP=192.168.0.100"
-set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]: 
-if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
-
+set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
 call :CHECK_IP "%DEST_IP%"
 if errorlevel 1 (
     echo [!] Invalid IPv4 format. Example: 192.168.0.100
@@ -144,8 +147,18 @@ echo.
 pause
 goto Menu
 
-
 :: ---------- Helpers ----------
+:EnsureAdmin
+:: Relaunch the script as administrator if required
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+      "Start-Process -FilePath '%~f0' -Verb RunAs"
+    exit /b
+)
+goto :eof
+
+:: ------------------------------
 :ASK_PORT
 :: %1 = var name, %2 = prompt
 set "_var=%~1"
