@@ -1,97 +1,113 @@
-# Requires Admin. Run in elevated PowerShell
-# Меню управления PortProxy (v4->v4)
+@echo off
+:: =============================================================
+:: PortProxy Helper (menu) - ASCII only
+:: Add / Show / Remove port forwarding rules (v4tov4)
+:: Requires: run as Administrator
+:: =============================================================
 
-function Ensure-Admin {
-    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $p  = New-Object Security.Principal.WindowsPrincipal($id)
-    if (-not $p.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
-        Write-Host "[ОШИБКА] Запустите PowerShell от имени администратора." -ForegroundColor Red
-        exit 1
-    }
-}
+title PortProxy Helper
+setlocal ENABLEDELAYEDEXPANSION
 
-function Add-OrUpdate-Rule {
-    param(
-        [string]$ListenIP = "0.0.0.0",
-        [int]$ListenPort = 4840,
-        [string]$DestIP = "192.168.10.50",
-        [int]$DestPort = 4840
-    )
-    Write-Host "Создаю правило: $ListenIP`:$ListenPort -> $DestIP`:$DestPort"
-    & netsh interface portproxy delete v4tov4 listenaddress=$ListenIP listenport=$ListenPort | Out-Null
-    & netsh interface portproxy add v4tov4 listenaddress=$ListenIP listenport=$ListenPort connectaddress=$DestIP connectport=$DestPort
-}
+:: Defaults (edit if needed)
+set "LISTEN_IP=0.0.0.0"
+set "LISTEN_PORT=4840"
+set "DEST_IP=192.168.10.50"
+set "DEST_PORT=4840"
 
-function Remove-One {
-    param([string]$ListenIP, [int]$ListenPort)
-    & netsh interface portproxy delete v4tov4 listenaddress=$ListenIP listenport=$ListenPort
-}
+:menu
+cls
+echo ===============================================
+echo           PortProxy Helper (v4tov4)
+echo ===============================================
+echo [1] Add / Update a rule
+echo [2] Remove one rule
+echo [3] Remove ALL rules
+echo [4] Show rules
+echo [5] Exit
+echo ===============================================
+echo ***********************************************
+echo *  HINTS:                                     *
+echo *    - Modbus TCP usually uses port 502       *
+echo *    - OPC UA usually uses port 4840          *
+echo ***********************************************
+echo ===============================================
+set /p choice=Select option (1-5): 
 
-function Remove-All {
-    & netsh interface portproxy reset
-}
+if "%choice%"=="1" goto add_rule
+if "%choice%"=="2" goto remove_one
+if "%choice%"=="3" goto remove_all
+if "%choice%"=="4" goto show_rules
+if "%choice%"=="5" goto end
+goto menu
 
-function Show-Rules {
-    & netsh interface portproxy show all
-}
+:add_rule
+cls
+echo --- Add / Update rule ---
+echo (Press Enter to keep current value)
+set /p LISTEN_IP_IN=Listen IP [%LISTEN_IP%]: 
+if not "%LISTEN_IP_IN%"=="" set "LISTEN_IP=%LISTEN_IP_IN%"
+set /p LISTEN_PORT_IN=Listen Port [%LISTEN_PORT%]: 
+if not "%LISTEN_PORT_IN%"=="" set "LISTEN_PORT=%LISTEN_PORT_IN%"
+set /p DEST_IP_IN=Destination IP [%DEST_IP%]: 
+if not "%DEST_IP_IN%"=="" set "DEST_IP=%DEST_IP_IN%"
+set /p DEST_PORT_IN=Destination Port [%DEST_PORT%]: 
+if not "%DEST_PORT_IN%"=="" set "DEST_PORT=%DEST_PORT_IN%"
 
-Ensure-Admin
+echo.
+echo Creating rule: %LISTEN_IP%:%LISTEN_PORT% ^> %DEST_IP%:%DEST_PORT%
+echo.
 
-$ListenIP  = "0.0.0.0"
-$ListenPort= 4840
-$DestIP    = "192.168.10.50"
-$DestPort  = 4840
+netsh interface portproxy delete v4tov4 listenaddress=%LISTEN_IP% listenport=%LISTEN_PORT% >nul 2>&1
+netsh interface portproxy add v4tov4 ^
+  listenaddress=%LISTEN_IP% listenport=%LISTEN_PORT% ^
+  connectaddress=%DEST_IP% connectport=%DEST_PORT%
+if errorlevel 1 (
+  echo [ERROR] Failed to add the rule. Try using an exact Listen IP instead of 0.0.0.0.
+  pause
+  goto menu
+)
 
-while ($true) {
-    Clear-Host
-    Write-Host "==============================================="
-    Write-Host "    Меню PortProxy (проброс портов v4->v4)"
-    Write-Host "==============================================="
-    Write-Host "[1] Добавить / Обновить правило"
-    Write-Host "[2] Удалить одно правило"
-    Write-Host "[3] Удалить ВСЕ правила"
-    Write-Host "[4] Показать правила"
-    Write-Host "[5] Выход"
-    Write-Host "==============================================="
-    $choice = Read-Host "Выберите пункт (1-5)"
+echo.
+echo [OK] Rule added/updated.
+pause
+goto menu
 
-    switch ($choice) {
-        "1" {
-            $li = Read-Host "IP для прослушивания [$ListenIP]"
-            if ($li) { $ListenIP = $li }
-            $lp = Read-Host "Порт для прослушивания [$ListenPort]"
-            if ($lp) { $ListenPort = [int]$lp }
-            $di = Read-Host "IP назначения [$DestIP]"
-            if ($di) { $DestIP = $di }
-            $dp = Read-Host "Порт назначения [$DestPort]"
-            if ($dp) { $DestPort = [int]$dp }
+:remove_one
+cls
+echo --- Remove one rule ---
+set /p R_LISTEN_IP=Listen IP to remove [current %LISTEN_IP%]: 
+if "%R_LISTEN_IP%"=="" set "R_LISTEN_IP=%LISTEN_IP%"
+set /p R_LISTEN_PORT=Listen Port to remove [current %LISTEN_PORT%]: 
+if "%R_LISTEN_PORT%"=="" set "R_LISTEN_PORT=%LISTEN_PORT%"
+echo.
+echo Deleting rule %R_LISTEN_IP%:%R_LISTEN_PORT% ...
+netsh interface portproxy delete v4tov4 listenaddress=%R_LISTEN_IP% listenport=%R_LISTEN_PORT%
+pause
+goto menu
 
-            Add-OrUpdate-Rule -ListenIP $ListenIP -ListenPort $ListenPort -DestIP $DestIP -DestPort $DestPort
-            Pause
-        }
-        "2" {
-            $li = Read-Host "IP правила (пусто = $ListenIP)"
-            if (-not $li) { $li = $ListenIP }
-            $lp = Read-Host "Порт правила (пусто = $ListenPort)"
-            if (-not $lp) { $lp = $ListenPort }
-            Remove-One -ListenIP $li -ListenPort ([int]$lp)
-            Pause
-        }
-        "3" {
-            $c = Read-Host "ВНИМАНИЕ! Удалить все правила? Напишите ДА"
-            if ($c -eq "ДА") {
-                Remove-All
-                Write-Host "Все правила удалены."
-            } else {
-                Write-Host "Отменено."
-            }
-            Pause
-        }
-        "4" {
-            Show-Rules
-            Pause
-        }
-        "5" { break }
-        default { }
-    }
-}
+:remove_all
+cls
+echo --- Remove ALL rules ---
+echo WARNING: This will delete ALL v4tov4 portproxy rules.
+set /p confirm=Type YES to confirm: 
+if /I not "%confirm%"=="YES" (
+  echo Cancelled.
+  pause
+  goto menu
+)
+netsh interface portproxy reset
+echo All rules removed.
+pause
+goto menu
+
+:show_rules
+cls
+echo --- Current rules ---
+netsh interface portproxy show all
+echo.
+pause
+goto menu
+
+:end
+endlocal
+exit /b 0
