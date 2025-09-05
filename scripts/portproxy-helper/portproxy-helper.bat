@@ -10,7 +10,7 @@ title PortProxy Helper (v4tov4)
 :: -----------------------------------------------------------------
 
 :: Default destination IP used when adding new rules
-set "DEFAULT_DEST_IP=192.168.0.100"
+set "DEFAULT_DEST_IP=192.168.10.5"
 
 :: Ensure we are running with administrative privileges
 call :EnsureAdmin
@@ -78,7 +78,7 @@ set "DEST_PORT=%PORT%"
 set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
 call :CHECK_IP "%DEST_IP%"
 if errorlevel 1 (
-    echo [!] Invalid IPv4 format. Example: 192.168.0.100
+    echo [!] Invalid IPv4 format. Example: 192.168.10.5
     pause
     goto Menu
 )
