@@ -75,7 +75,8 @@ set "LISTEN_PORT=%PORT%"
 set "DEST_PORT=%PORT%"
 
 :: ask only for destination IP
-set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
+set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:
+if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
 call :CHECK_IP "%DEST_IP%"
 if errorlevel 1 (
     echo [!] Invalid IPv4 format. Example: 192.168.10.5
