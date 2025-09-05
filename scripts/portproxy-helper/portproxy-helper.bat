@@ -75,7 +75,8 @@ set "LISTEN_PORT=%PORT%"
 set "DEST_PORT=%PORT%"
 
 :: ask only for destination IP
-set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
+set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:
+if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
 call :CHECK_IP "%DEST_IP%"
 if errorlevel 1 (
     echo [!] Invalid IPv4 format. Example: 192.168.10.5
@@ -101,6 +102,17 @@ if errorlevel 1 (
 
 echo.
 echo [+] Rule created successfully.
+echo.
+echo Adding firewall rules...
+netsh advfirewall firewall delete rule name="PortProxy_%PORT%_IN" >nul 2>&1
+netsh advfirewall firewall delete rule name="PortProxy_%PORT%_OUT" >nul 2>&1
+netsh advfirewall firewall add rule name="PortProxy_%PORT%_IN"  dir=in  action=allow protocol=TCP localport=%PORT%
+netsh advfirewall firewall add rule name="PortProxy_%PORT%_OUT" dir=out action=allow protocol=TCP remoteport=%PORT%
+if errorlevel 1 (
+    echo [!] Failed to create firewall rules.
+    pause
+    goto Menu
+)
 echo.
 echo Dump of current PortProxy configuration:
 echo ---------------------------------------
