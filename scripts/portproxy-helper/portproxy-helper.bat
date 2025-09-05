@@ -26,7 +26,8 @@ echo [2] Disconnect all clients (restart iphlpsvc)
 echo [3] Remove one rule
 echo [4] Remove ALL rules
 echo [5] Show rules
-echo [6] Exit
+echo [6] Show active connections on a port
+echo [7] Exit
 echo ===============================================
 echo ***********************************************
 echo *  HINTS:                                     *
@@ -34,14 +35,15 @@ echo *    - Modbus TCP usually uses port 502       *
 echo *    - OPC UA usually uses port 4840          *
 echo ***********************************************
 echo ===============================================
-set /p CHOICE=Select option (1-6): 
+set /p CHOICE=Select option (1-7):
 
 if "%CHOICE%"=="1" goto AddRule
 if "%CHOICE%"=="2" goto RestartSvc
 if "%CHOICE%"=="3" goto RemoveRule
 if "%CHOICE%"=="4" goto RemoveAll
 if "%CHOICE%"=="5" goto ShowRules
-if "%CHOICE%"=="6" exit /b
+if "%CHOICE%"=="6" goto ShowConnections
+if "%CHOICE%"=="7" exit /b
 
 goto Menu
 
@@ -158,6 +160,16 @@ cls
 echo Current PortProxy rules:
 echo.
 netsh interface portproxy show all
+echo.
+pause
+goto Menu
+
+:ShowConnections
+cls
+set /p SCPORT=Enter port to inspect:
+echo.
+echo Active connections on port %SCPORT%:
+netstat -ano ^| findstr /R /C:":%SCPORT% "
 echo.
 pause
 goto Menu
