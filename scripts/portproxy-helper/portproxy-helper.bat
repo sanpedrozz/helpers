@@ -86,10 +86,12 @@ if errorlevel 1 (
 echo.
 echo Removing old rule if exists...
 netsh interface portproxy delete v4tov4 listenport=%LISTEN_PORT% listenaddress=%LISTEN_IP% >nul 2>&1
+netsh interface portproxy delete v6tov4 listenport=%LISTEN_PORT% listenaddress=:: >nul 2>&1
 
 echo Adding new rule:
 echo     %LISTEN_IP%:%LISTEN_PORT%  -->  %DEST_IP%:%DEST_PORT%
 netsh interface portproxy add v4tov4 listenport=%LISTEN_PORT% listenaddress=%LISTEN_IP% connectport=%DEST_PORT% connectaddress=%DEST_IP%
+netsh interface portproxy add v6tov4 listenport=%LISTEN_PORT% listenaddress=:: connectport=%DEST_PORT% connectaddress=%DEST_IP%
 
 if errorlevel 1 (
     echo [!] Failed to create portproxy rule.
@@ -124,8 +126,9 @@ goto Menu
 
 :RemoveRule
 cls
-set /p RP=Enter LISTEN PORT to remove: 
+set /p RP=Enter LISTEN PORT to remove:
 netsh interface portproxy delete v4tov4 listenport=%RP% listenaddress=0.0.0.0
+netsh interface portproxy delete v6tov4 listenport=%RP% listenaddress=::
 pause
 goto Menu
 
