@@ -5,10 +5,13 @@ import { useAuth } from "@/store/auth";
 
 export function Protected({ children }: { children: JSX.Element }) {
   const access = useAuth((s) => s.access);
-  const [ok, setOk] = useState(!!access);
+  const [ok, setOk] = useState<boolean | null>(access ? true : null);
 
   useEffect(() => {
-    if (access) return setOk(true);
+    if (access) {
+      setOk(true);
+      return;
+    }
     api
       .post("/auth/refresh")
       .then(({ data }) => {
@@ -20,6 +23,7 @@ export function Protected({ children }: { children: JSX.Element }) {
       });
   }, [access]);
 
+  if (ok === null) return null;
   if (!ok) return <Navigate to="/login" replace />;
   return children;
 }
