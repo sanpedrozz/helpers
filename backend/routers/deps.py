@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..security.jwt import decode_token
 from ..models.user import User
@@ -8,14 +9,14 @@ from ..models.user import User
 bearer = HTTPBearer(auto_error=False)
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> Optional[AsyncSession]:
     """Placeholder dependency returning database session."""
-    raise NotImplementedError
+    return None
 
 
 async def get_current_user(
     cred: HTTPAuthorizationCredentials = Depends(bearer),
-    db: AsyncSession = Depends(get_db),
+    db: Optional[AsyncSession] = Depends(get_db),
 ) -> User:
     if not cred:
         raise HTTPException(status_code=401, detail="Not authenticated")
