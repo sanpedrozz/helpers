@@ -79,7 +79,12 @@ set "DEST_PORT=%PORT%"
 :: ask only for destination IP
 set /p DEST_IP=Enter destination IP (remote) [default %DEFAULT_DEST_IP%]:
 if "%DEST_IP%"=="" set "DEST_IP=%DEFAULT_DEST_IP%"
-call :CHECK_IP "%DEST_IP%"
+
+:: normalize accidental spaces around the value
+for /f "tokens=* delims= " %%A in ("%DEST_IP%") do set "DEST_IP=%%A"
+
+:: validate IPv4 directly here to avoid label-call edge cases in some cmd environments
+echo %DEST_IP%| findstr /R "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul
 if errorlevel 1 (
     echo [!] Invalid IPv4 format. Example: 192.168.10.5
     pause
@@ -198,7 +203,3 @@ if %VAL% lss 1  (echo [!] Port must be >= 1.& goto :ASK_PORT_LOOP)
 if %VAL% gtr 65535 (echo [!] Port must be <= 65535.& goto :ASK_PORT_LOOP)
 goto :eof
 
-:CHECK_IP
-set "IP=%~1"
-echo %IP%| findstr /R "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul || (exit /b 1)
-exit /b 0
